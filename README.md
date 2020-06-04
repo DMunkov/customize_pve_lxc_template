@@ -35,12 +35,14 @@ Example Playbook
 ----------------
 
     - hosts: proxmox01
+      vars:
+        # Unless specified in hosts/group_vars/host_vars, Proxmox credentials
+        ansible_user: root
+        ansible_password: password
+        api_password: "{{ ansible_password }}"
       roles:
-        - role: DMunkov.customize_pve_lxc_template
-          # unless specified in hosts/group_vars/host_vars
-          ansible_user: root
-          ansible_password: password
-          api_password: "{{ ansible_password }}"
+        - dmunkov.customize_pve_lxc_template
+          
 
 License
 -------
