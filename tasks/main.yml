@@ -2,12 +2,13 @@
   shell: "pveam list {{ template_storage }} | grep {{ template_name }}"
   register: existing_template
   failed_when: existing_template.stdout
+  changed_when: false      # Ansible-lint was yapping
   ignore_errors: true
 
 - name: Abort play if template already exists
   fail:
     msg: "Template with the name '{{ template_name }}' already exists on storage '{{ template_storage }}'"
-  when: existing_template.failed_when_result == true
+  when: existing_template.failed_when_result
 
 - name: Deploy new CT from the reference template
   proxmox:
@@ -22,13 +23,7 @@
     storage:      local-lvm
     netif:        "{'net0':'name=eth0,ip=dhcp,ip6=dhcp,bridge=vmbr0'}"
     state:        present
-  register: ct_deploy
 
-- name: Let it settle
-  pause:
-    seconds: 5
-  when: ct_deploy.changed == true
-  
 - name: Start container
   proxmox:
     node:         "{{ pve_node }}"
@@ -42,14 +37,17 @@
 - name: Let it settle
   pause:
     seconds: 5
-  when: ct_start.changed == true
+  when: ct_start.changed
 
 - name: Generate salted password for a template user
-  local_action: command openssl passwd -salt 'rhel6usgcb' -6 "{{ template_new_user_pass }}"
+  command: "openssl passwd -salt 'rhel6usgcb' -6 {{ template_new_user_pass }}"
+  changed_when: false      # Ansible-lint was yapping
+  delegate_to: localhost
   register: salted_passwd
 
 - name: Make changes to the template
-  shell: "pct exec {{ template_id }} -- {{ item }}"
+  command: "pct exec {{ template_id }} -- {{ item }}"
+  changed_when: true
   register: template_changes
   with_items:
     - "dnf -y update"
@@ -79,7 +77,8 @@
     state: directory
 
 - name: Dump the modified template to temporary folder
-  shell: "vzdump {{ template_id }} --mode stop --compress gzip --dumpdir {{ template_temp_dir }}"
+  command: "vzdump {{ template_id }} --mode stop --compress gzip --dumpdir {{ template_temp_dir }}"
+  changed_when: true      # Ansible-lint was yapping
 
 - name: Find template backup file
   find:
@@ -92,7 +91,7 @@
     dest: "/mnt/pve/{{ template_storage }}/template/cache/{{ template_name }}"
     src: "{{ backup_file.files[0].path }}"
     remote_src: yes
-  when: backup_file.matched == 1 # Only when we have one matched file in the directory
+  when: backup_file.matched == 1      # Only when we have one matched file in the directory
 
 - name: Clean up the temporary directory
   file:

@@ -9,10 +9,7 @@ galaxy_info:
   - name: Debian
     versions:
     - buster
-  - name: Proxmox
-    versions:
-    - 6.2
-  - name: CentOS
+  - name: EL
     versions:
     - 8
 
