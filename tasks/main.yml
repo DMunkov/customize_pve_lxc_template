@@ -1,0 +1,109 @@
+- name: Check if we already have a modified template
+  shell: "pveam list {{ template_storage }} | grep {{ template_name }}"
+  register: existing_template
+  failed_when: existing_template.stdout
+  ignore_errors: true
+
+- name: Abort play if template already exists
+  fail:
+    msg: "Template with the name '{{ template_name }}' already exists on storage '{{ template_storage }}'"
+  when: existing_template.failed_when_result == true
+
+- name: Deploy new CT from the reference template
+  proxmox:
+    node:         "{{ pve_node }}"
+    api_user:     "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    api_host:     "{{ pve_api_host }}"
+    vmid:         "{{ template_id }}"
+    password:     "{{ template_root_password }}"
+    hostname:     "{{ template_hostname }}"
+    ostemplate:   "{{ template_ref_uri }}"
+    storage:      local-lvm
+    netif:        "{'net0':'name=eth0,ip=dhcp,ip6=dhcp,bridge=vmbr0'}"
+    state:        present
+  register: ct_deploy
+
+- name: Let it settle
+  pause:
+    seconds: 5
+  when: ct_deploy.changed == true
+  
+- name: Start container
+  proxmox:
+    node:         "{{ pve_node }}"
+    api_user:     "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    api_host:     "{{ pve_api_host }}"
+    vmid:         "{{ template_id }}"
+    state:        started
+  register: ct_start
+
+- name: Let it settle
+  pause:
+    seconds: 5
+  when: ct_start.changed == true
+
+- name: Generate salted password for a template user
+  local_action: command openssl passwd -salt 'rhel6usgcb' -6 "{{ template_new_user_pass }}"
+  register: salted_passwd
+
+- name: Make changes to the template
+  shell: "pct exec {{ template_id }} -- {{ item }}"
+  register: template_changes
+  with_items:
+    - "dnf -y update"
+    - "dnf -y install openssh-server vim sudo"
+    - "useradd -m {{ template_new_user }}"
+    - "usermod -p '{{ salted_passwd.stdout }}' {{ template_new_user }}"
+    - "usermod -a -G wheel {{ template_new_user }}"
+    - "bash -c 'echo \"{{ template_new_user }}    ALL=(ALL)    NOPASSWD: ALL\" >> /etc/sudoers.d/{{ template_new_user }}'"
+    - "systemctl enable sshd"
+    - "systemctl start sshd"
+    - "dnf clean all"
+    - "rm -rf /var/cache/dnf"
+    - "rm -rf /tmp/*"
+
+- name: Stop container
+  proxmox:
+    node:         "{{ pve_node }}"
+    api_user:     "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    api_host:     "{{ pve_api_host }}"
+    vmid:         "{{ template_id }}"
+    state:        stopped
+
+- name: Create temporary directory to store new template
+  file:
+    path: "{{ template_temp_dir }}"
+    state: directory
+
+- name: Dump the modified template to temporary folder
+  shell: "vzdump {{ template_id }} --mode stop --compress gzip --dumpdir {{ template_temp_dir }}"
+
+- name: Find template backup file
+  find:
+    paths: "{{ template_temp_dir }}"
+    patterns: "*.tar.gz"
+  register: backup_file
+
+- name: Copy new template to storage
+  copy:
+    dest: "/mnt/pve/{{ template_storage }}/template/cache/{{ template_name }}"
+    src: "{{ backup_file.files[0].path }}"
+    remote_src: yes
+  when: backup_file.matched == 1 # Only when we have one matched file in the directory
+
+- name: Clean up the temporary directory
+  file:
+    path: "{{ template_temp_dir }}"
+    state: absent
+
+- name: Delete container
+  proxmox:
+    node:         "{{ pve_node }}"
+    api_user:     "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    api_host:     "{{ pve_api_host }}"
+    vmid:         "{{ template_id }}"
+    state:        absent

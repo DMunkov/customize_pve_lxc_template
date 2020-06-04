@@ -1,0 +1,28 @@
+galaxy_info:
+  role_name: customize_pve_lxc_template
+  author: Dmitrii Munkov
+  description: Ansible role to build a new customized CentOS 8 LXC template on Proxmox.
+  license: MIT
+  min_ansible_version: 2.9
+
+  platforms:
+  - name: Debian
+    versions:
+    - buster
+  - name: Proxmox
+    versions:
+    - 6.2
+  - name: CentOS
+    versions:
+    - 8
+
+  galaxy_tags:
+    - proxmox
+    - lxc
+    - container
+    - centos
+    - ssh
+    - customize
+    - template
+
+dependencies: []
