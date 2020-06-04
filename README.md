@@ -1,7 +1,5 @@
-Role Name
-=========
-
 Ansible role to build a new customized CentOS 8 LXC template on Proxmox.
+=========
 
 **The problem**
 
