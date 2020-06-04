@@ -9,7 +9,7 @@ https://www.nathancurry.com/blog/15-customize-lxc-container-template-on-proxmox/
 
 **The solution**
 
-This playbook offers an easy way of creating customized templates. Modify the [vars](vars\main.yml), run the role on your Proxmox host and start using your updated LXC template (`template_name`)
+This playbook offers an easy way of creating customized templates. Modify the vars, run the role on your Proxmox host and start using your updated LXC template (`template_name`)
 
 Requirements
 ------------
@@ -24,7 +24,7 @@ As of Ansible version 2.9:
 Role Variables
 --------------
 
-Check [vars\main.yml](vars\main.yml) for comprehensive list of settable variables.
+Check example variables file below for comprehensive list of settable variables.
 
 Dependencies
 ------------
