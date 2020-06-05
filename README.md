@@ -21,6 +21,8 @@ As of Ansible version 2.9:
 * python >= 2.7
 * requests
 
+* openssl - for encrypting passwords
+
 Role Variables
 --------------
 
